@@ -23,7 +23,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
-import javax.persistence.EntityManager;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.persistence.EntityManager;
 import org.apache.fineract.infrastructure.event.external.exception.ExternalEventConfigurationNotFoundException;
 import org.apache.fineract.infrastructure.event.external.repository.CustomExternalEventConfigurationRepositoryImpl;
 import org.apache.fineract.infrastructure.event.external.repository.domain.ExternalEventConfiguration;
@@ -35,6 +36,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressFBWarnings(value = "RV_EXCEPTION_NOT_THROWN", justification = "False positive")
 public class CustomExternalEventConfigurationRepositoryImplTest {
 
     @Mock

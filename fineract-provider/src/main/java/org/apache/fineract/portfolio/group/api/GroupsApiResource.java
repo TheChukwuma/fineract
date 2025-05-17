@@ -27,6 +27,20 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -35,20 +49,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.fineract.commands.domain.CommandWrapper;
@@ -74,6 +74,7 @@ import org.apache.fineract.infrastructure.dataqueries.data.EntityTables;
 import org.apache.fineract.infrastructure.dataqueries.data.StatusEnum;
 import org.apache.fineract.infrastructure.dataqueries.service.EntityDatatableChecksReadService;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.SqlValidator;
 import org.apache.fineract.portfolio.accountdetails.data.AccountSummaryCollectionData;
 import org.apache.fineract.portfolio.accountdetails.service.AccountDetailsReadPlatformService;
 import org.apache.fineract.portfolio.calendar.data.CalendarData;
@@ -100,7 +101,7 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 
-@Path("/groups")
+@Path("/v1/groups")
 @Component
 @Tag(name = "Groups", description = "Groups are used to provide a distinctive banking distribution channel used in microfinances throughout the world. The Group is an administrative unit. It can contain as few as 5 people or as many as 40 depending on how its used.\n"
         + "\n"
@@ -130,6 +131,7 @@ public class GroupsApiResource {
     private final BulkImportWorkbookPopulatorService bulkImportWorkbookPopulatorService;
     private final GLIMAccountInfoReadPlatformService glimAccountInfoReadPlatformService;
     private final GSIMReadPlatformService gsimReadPlatformService;
+    private final SqlValidator sqlValidator;
 
     @GET
     @Path("template")
@@ -157,8 +159,8 @@ public class GroupsApiResource {
                     GroupingTypesApiConstants.GROUP_RESPONSE_DATA_PARAMETERS);
         }
 
-        final List<DatatableData> datatableTemplates = entityDatatableChecksReadService
-                .retrieveTemplates(StatusEnum.CREATE.getCode().longValue(), EntityTables.GROUP.getName(), null);
+        final List<DatatableData> datatableTemplates = entityDatatableChecksReadService.retrieveTemplates(StatusEnum.CREATE.getValue(),
+                EntityTables.GROUP.getName(), null);
         if (centerId != null) {
             final GroupGeneralData centerGroupTemplate = centerReadPlatformService.retrieveCenterGroupTemplate(centerId);
             centerGroupTemplate.setDatatables(datatableTemplates);
@@ -197,11 +199,17 @@ public class GroupsApiResource {
             @QueryParam("orphansOnly") @Parameter(description = "orphansOnly") final Boolean orphansOnly) {
 
         context.authenticatedUser().validateHasReadPermission(GroupingTypesApiConstants.GROUP_RESOURCE_NAME);
-        final PaginationParameters parameters = PaginationParameters.instance(paged, offset, limit, orderBy, sortOrder);
+        sqlValidator.validate(orderBy);
+        sqlValidator.validate(sortOrder);
+        sqlValidator.validate(externalId);
+        sqlValidator.validate(hierarchy);
+        final PaginationParameters parameters = PaginationParameters.builder().paged(Boolean.TRUE.equals(paged)).limit(limit).offset(offset)
+                .orderBy(orderBy).sortOrder(sortOrder).build();
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
 
-        final SearchParameters searchParameters = SearchParameters.forGroups(officeId, staffId, externalId, name, hierarchy, offset, limit,
-                orderBy, sortOrder, orphansOnly);
+        final SearchParameters searchParameters = SearchParameters.builder().limit(limit).isSelfUser(false).officeId(officeId)
+                .externalId(externalId).name(name).hierarchy(hierarchy).offset(offset).orderBy(orderBy).sortOrder(sortOrder)
+                .staffId(staffId).orphansOnly(orphansOnly).build();
         if (parameters.isPaged()) {
             final Page<GroupGeneralData> groups = groupReadPlatformService.retrievePagedAll(searchParameters, parameters);
             return toApiJsonSerializer.serialize(settings, groups, GroupingTypesApiConstants.GROUP_RESPONSE_DATA_PARAMETERS);

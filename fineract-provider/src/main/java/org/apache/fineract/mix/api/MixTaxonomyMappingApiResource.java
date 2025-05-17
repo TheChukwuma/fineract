@@ -19,78 +19,51 @@
 package org.apache.fineract.mix.api;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
 import org.apache.fineract.commands.service.PortfolioCommandSourceWritePlatformService;
-import org.apache.fineract.infrastructure.core.api.ApiRequestParameterHelper;
 import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
-import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.ToApiJsonSerializer;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.apache.fineract.mix.data.MixTaxonomyMappingData;
+import org.apache.fineract.mix.data.MixTaxonomyRequest;
 import org.apache.fineract.mix.service.MixTaxonomyMappingReadPlatformService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-@Path("/mixmapping")
+@Path("/v1/mixmapping")
 @Component
-@Scope("singleton")
-
 @Tag(name = "Mix Mapping", description = "")
+@RequiredArgsConstructor
 public class MixTaxonomyMappingApiResource {
-
-    private static final Set<String> RESPONSE_DATA_PARAMETERS = new HashSet<>(Arrays.asList("identifier", "config"));
 
     private final PlatformSecurityContext context;
     private final ToApiJsonSerializer<MixTaxonomyMappingData> toApiJsonSerializer;
     private final MixTaxonomyMappingReadPlatformService readTaxonomyMappingService;
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
-    private final ApiRequestParameterHelper apiRequestParameterHelper;
-
-    @Autowired
-    public MixTaxonomyMappingApiResource(final PlatformSecurityContext context,
-            final ToApiJsonSerializer<MixTaxonomyMappingData> toApiJsonSerializer,
-            final MixTaxonomyMappingReadPlatformService readTaxonomyMappingService,
-            final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService,
-            final ApiRequestParameterHelper apiRequestParameterHelper) {
-
-        this.context = context;
-        this.toApiJsonSerializer = toApiJsonSerializer;
-        this.readTaxonomyMappingService = readTaxonomyMappingService;
-        this.commandsSourceWritePlatformService = commandsSourceWritePlatformService;
-        this.apiRequestParameterHelper = apiRequestParameterHelper;
-    }
 
     @GET
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    public String retrieveTaxonomyMapping(@Context final UriInfo uriInfo) {
+    public MixTaxonomyMappingData retrieveTaxonomyMapping() {
         this.context.authenticatedUser();
-        final MixTaxonomyMappingData mappingData = this.readTaxonomyMappingService.retrieveTaxonomyMapping();
-        final ApiRequestJsonSerializationSettings settings = this.apiRequestParameterHelper.process(uriInfo.getQueryParameters());
-        return this.toApiJsonSerializer.serialize(settings, mappingData, RESPONSE_DATA_PARAMETERS);
+        return this.readTaxonomyMappingService.retrieveTaxonomyMapping();
     }
 
     @PUT
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
-    public String updateTaxonomyMapping(final String jsonRequestBody) {
+    public String updateTaxonomyMapping(final MixTaxonomyRequest mixTaxonomyRequest) {
         // TODO support multiple configuration file loading
         final Long mappingId = (long) 1;
-        final CommandWrapper commandRequest = new CommandWrapperBuilder().updateTaxonomyMapping(mappingId).withJson(jsonRequestBody)
-                .build();
+        final CommandWrapper commandRequest = new CommandWrapperBuilder().updateTaxonomyMapping(mappingId)
+                .withJson(toApiJsonSerializer.serialize(mixTaxonomyRequest)).build();
 
         final CommandProcessingResult result = this.commandsSourceWritePlatformService.logCommandSource(commandRequest);
 

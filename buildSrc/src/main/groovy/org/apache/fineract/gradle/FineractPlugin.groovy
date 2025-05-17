@@ -66,7 +66,6 @@ class FineractPlugin implements Plugin<Project> {
             this.confluenceService = new ConfluenceService(extension.config.confluence)
             this.subversionService = new SubversionService(extension.config.subversion)
             this.emailService = new EmailService(extension.config.smtp)
-            this.gpgService = new GpgService(extension.config.gpg)
             this.gitService = new GitService(extension.config.git, extension.config.gpg)
             this.context = context(project)
         }
@@ -331,12 +330,10 @@ class FineractPlugin implements Plugin<Project> {
         project.tasks.register("fineractReleaseStep7") {
             doFirst {
                 FineractPluginExtension.FineractPluginStep step = step(extension, "step7")
-
+                gpgService = new GpgService(extension.config.gpg)
                 gpgService.sign(step.gpg)
 
                 step.gpg.files.findAll {
-                    gpgService.md5(step.gpg)
-
                     gpgService.sha512(step.gpg)
                 }
             }
@@ -441,29 +438,10 @@ class FineractPlugin implements Plugin<Project> {
         project.tasks.register("fineractReleaseStep12") {
             doFirst {
                 FineractPluginExtension.FineractPluginStep step = step(extension, "step12")
-
-                String version = project.properties?['fineract.release.version']
-
-                if(!version) {
-                    TextIO textIO = TextIoFactory.getTextIO()
-
-                    version = textIO.newStringInputReader()
-                            .withPattern("\\d+.\\d+.\\d+")
-                            .read("Release Version");
-                }
-
                 // TODO: input validation, see FINERACT-1610
 
-                subversionService.checkout(step.subversion)
-
-                def directory = step.subversion.directory?:System.getProperty("java.io.tmpdir") + "/fineract-dist-release"
-
-                def source = new File("fineract-war/build/distributions")
-                def target = new File("${directory}/${version}")
-
-                FileUtils.copyDirectory(source, target, true)
-
-                subversionService.commit(step.subversion)
+                // TODO: implement this, see FINERACT-1817
+                printInstructions(project, "step12")
             }
         }
 

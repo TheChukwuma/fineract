@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.infrastructure.bulkimport.service;
 
+import jakarta.ws.rs.core.Response;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,7 +30,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.Collection;
-import javax.ws.rs.core.Response;
 import org.apache.commons.io.IOUtils;
 import org.apache.fineract.infrastructure.bulkimport.data.BulkImportEvent;
 import org.apache.fineract.infrastructure.bulkimport.data.GlobalEntityType;
@@ -260,8 +260,8 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
     }
 
     private Response buildResponse(DocumentData documentData) {
-        String fileName = "Output" + documentData.fileName();
-        String fileLocation = documentData.fileLocation();
+        String fileName = "Output" + documentData.getFileName();
+        String fileLocation = documentData.getLocation();
         File file = new File(fileLocation);
         final Response.ResponseBuilder response = Response.ok(file);
         response.header("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
@@ -282,7 +282,7 @@ public class BulkImportWorkbookServiceImpl implements BulkImportWorkbookService 
         public DocumentData mapRow(ResultSet rs, @SuppressWarnings("unused") int rowNum) throws SQLException {
             final String location = rs.getString("location");
             final String fileName = rs.getString("file_name");
-            return new DocumentData(null, null, null, null, fileName, null, null, null, location, null);
+            return new DocumentData(null, null, null, null, fileName, null, null, location, null, null);
         }
     }
 }

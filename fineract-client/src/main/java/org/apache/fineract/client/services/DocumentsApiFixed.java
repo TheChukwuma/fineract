@@ -21,7 +21,7 @@ package org.apache.fineract.client.services;
 import java.util.List;
 import okhttp3.ResponseBody;
 import org.apache.fineract.client.models.DeleteEntityTypeEntityIdDocumentsResponse;
-import org.apache.fineract.client.models.GetEntityTypeEntityIdDocumentsResponse;
+import org.apache.fineract.client.models.DocumentData;
 import org.apache.fineract.client.models.PostEntityTypeEntityIdDocumentsResponse;
 import org.apache.fineract.client.models.PutEntityTypeEntityIdDocumentsResponse;
 import retrofit2.Call;
@@ -53,7 +53,7 @@ public interface DocumentsApiFixed {
      * @return Call&lt;PostEntityTypeEntityIdDocumentsResponse&gt;
      */
     @retrofit2.http.Multipart
-    @POST("{entityType}/{entityId}/documents")
+    @POST("v1/{entityType}/{entityId}/documents")
     Call<PostEntityTypeEntityIdDocumentsResponse> createDocument(@retrofit2.http.Path("entityType") String entityType,
             @retrofit2.http.Path("entityId") Long entityId, @retrofit2.http.Part okhttp3.MultipartBody.Part file,
             @retrofit2.http.Part("name") String name, @retrofit2.http.Part("description") String description);
@@ -69,7 +69,7 @@ public interface DocumentsApiFixed {
      *            documentId (required)
      * @return Call&lt;DeleteEntityTypeEntityIdDocumentsResponse&gt;
      */
-    @DELETE("{entityType}/{entityId}/documents/{documentId}")
+    @DELETE("v1/{entityType}/{entityId}/documents/{documentId}")
     Call<DeleteEntityTypeEntityIdDocumentsResponse> deleteDocument(@retrofit2.http.Path("entityType") String entityType,
             @retrofit2.http.Path("entityId") Long entityId, @retrofit2.http.Path("documentId") Long documentId);
 
@@ -85,7 +85,7 @@ public interface DocumentsApiFixed {
      *            documentId (required)
      * @return Call&lt;Void&gt;
      */
-    @GET("{entityType}/{entityId}/documents/{documentId}/attachment")
+    @GET("v1/{entityType}/{entityId}/documents/{documentId}/attachment")
     Call<ResponseBody> downloadFile(@retrofit2.http.Path("entityType") String entityType, @retrofit2.http.Path("entityId") Long entityId,
             @retrofit2.http.Path("documentId") Long documentId);
 
@@ -101,9 +101,9 @@ public interface DocumentsApiFixed {
      *            documentId (required)
      * @return Call&lt;GetEntityTypeEntityIdDocumentsResponse&gt;
      */
-    @GET("{entityType}/{entityId}/documents/{documentId}")
-    Call<GetEntityTypeEntityIdDocumentsResponse> getDocument(@retrofit2.http.Path("entityType") String entityType,
-            @retrofit2.http.Path("entityId") Long entityId, @retrofit2.http.Path("documentId") Long documentId);
+    @GET("v1/{entityType}/{entityId}/documents/{documentId}")
+    Call<DocumentData> getDocument(@retrofit2.http.Path("entityType") String entityType, @retrofit2.http.Path("entityId") Long entityId,
+            @retrofit2.http.Path("documentId") Long documentId);
 
     /**
      * List documents Example Requests: clients/1/documents client_identifiers/1/documents
@@ -115,8 +115,8 @@ public interface DocumentsApiFixed {
      *            entityId (required)
      * @return Call&lt;List&lt;GetEntityTypeEntityIdDocumentsResponse&gt;&gt;
      */
-    @GET("{entityType}/{entityId}/documents")
-    Call<List<GetEntityTypeEntityIdDocumentsResponse>> retrieveAllDocuments(@retrofit2.http.Path("entityType") String entityType,
+    @GET("v1/{entityType}/{entityId}/documents")
+    Call<List<DocumentData>> retrieveAllDocuments(@retrofit2.http.Path("entityType") String entityType,
             @retrofit2.http.Path("entityId") Long entityId);
 
     /**
@@ -138,7 +138,7 @@ public interface DocumentsApiFixed {
      * @return Call&lt;PutEntityTypeEntityIdDocumentsResponse&gt;
      */
     @retrofit2.http.Multipart
-    @PUT("{entityType}/{entityId}/documents/{documentId}")
+    @PUT("v1/{entityType}/{entityId}/documents/{documentId}")
     Call<PutEntityTypeEntityIdDocumentsResponse> updateDocument(@retrofit2.http.Path("entityType") String entityType,
             @retrofit2.http.Path("entityId") Long entityId, @retrofit2.http.Path("documentId") Long documentId,
             @retrofit2.http.Part okhttp3.MultipartBody.Part file, @retrofit2.http.Part("name") String name,

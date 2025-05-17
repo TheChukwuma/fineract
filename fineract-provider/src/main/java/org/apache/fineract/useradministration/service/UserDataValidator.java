@@ -18,8 +18,13 @@
  */
 package org.apache.fineract.useradministration.service;
 
+import static org.apache.fineract.useradministration.service.AppUserConstants.CLIENTS;
+import static org.apache.fineract.useradministration.service.AppUserConstants.PASSWORD;
+import static org.apache.fineract.useradministration.service.AppUserConstants.REPEAT_PASSWORD;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -34,6 +39,7 @@ import org.apache.fineract.infrastructure.core.data.DataValidatorBuilder;
 import org.apache.fineract.infrastructure.core.exception.InvalidJsonException;
 import org.apache.fineract.infrastructure.core.exception.PlatformApiDataValidationException;
 import org.apache.fineract.infrastructure.core.serialization.FromJsonHelper;
+import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicy;
 import org.apache.fineract.useradministration.domain.PasswordValidationPolicyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,8 +51,6 @@ public final class UserDataValidator {
     public static final String USERNAME = "username";
     public static final String FIRSTNAME = "firstname";
     public static final String LASTNAME = "lastname";
-    public static final String PASSWORD = "password";
-    public static final String REPEAT_PASSWORD = "repeatPassword";
     public static final String EMAIL = "email";
     public static final String OFFICE_ID = "officeId";
     public static final String NOT_SELECTED_ROLES = "notSelectedRoles";
@@ -57,9 +61,13 @@ public final class UserDataValidator {
     /**
      * The parameters supported for this command.
      */
-    private static final Set<String> SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD,
-            REPEAT_PASSWORD, EMAIL, OFFICE_ID, NOT_SELECTED_ROLES, ROLES, SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES,
-            AppUserConstants.IS_SELF_SERVICE_USER, AppUserConstants.CLIENTS));
+    private static final Set<String> CREATE_SUPPORTED_PARAMETERS = new HashSet<>(
+            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, NOT_SELECTED_ROLES, ROLES,
+                    SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
+    private static final Set<String> UPDATE_SUPPORTED_PARAMETERS = new HashSet<>(
+            Arrays.asList(USERNAME, FIRSTNAME, LASTNAME, PASSWORD, REPEAT_PASSWORD, EMAIL, OFFICE_ID, NOT_SELECTED_ROLES, ROLES,
+                    SEND_PASSWORD_TO_EMAIL, STAFF_ID, PASSWORD_NEVER_EXPIRES, AppUserConstants.IS_SELF_SERVICE_USER, CLIENTS));
+    private static final Set<String> CHANGE_PASSWORD_SUPPORTED_PARAMETERS = new HashSet<>(Arrays.asList(PASSWORD, REPEAT_PASSWORD));
     public static final String PASSWORD_NEVER_EXPIRE = "passwordNeverExpire";
 
     private final FromJsonHelper fromApiJsonHelper;
@@ -80,7 +88,7 @@ public final class UserDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {
 
         }.getType();
-        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, SUPPORTED_PARAMETERS);
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, CREATE_SUPPORTED_PARAMETERS);
 
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("user");
@@ -102,16 +110,7 @@ public final class UserDataValidator {
                 final String email = this.fromApiJsonHelper.extractStringNamed(EMAIL, element);
                 baseDataValidator.reset().parameter(EMAIL).value(email).notBlank().notExceedingLengthOf(100);
             } else {
-                final String password = this.fromApiJsonHelper.extractStringNamed(PASSWORD, element);
-                final String repeatPassword = this.fromApiJsonHelper.extractStringNamed(REPEAT_PASSWORD, element);
-                final PasswordValidationPolicy validationPolicy = this.passwordValidationPolicy.findActivePasswordValidationPolicy();
-                final String regex = validationPolicy.getRegex();
-                final String description = validationPolicy.getDescription();
-                baseDataValidator.reset().parameter(PASSWORD).value(password).matchesRegularExpression(regex, description);
-
-                if (StringUtils.isNotBlank(password)) {
-                    baseDataValidator.reset().parameter(PASSWORD).value(password).equalToParameter(REPEAT_PASSWORD, repeatPassword);
-                }
+                validatePassword(baseDataValidator, element);
             }
         } else {
             baseDataValidator.reset().parameter(SEND_PASSWORD_TO_EMAIL).value(sendPasswordToEmail).trueOrFalseRequired(false);
@@ -139,17 +138,17 @@ public final class UserDataValidator {
             }
         }
 
-        if (this.fromApiJsonHelper.parameterExists(AppUserConstants.CLIENTS, element)) {
+        if (this.fromApiJsonHelper.parameterExists(CLIENTS, element)) {
             if (isSelfServiceUser == null || !isSelfServiceUser) {
-                baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).failWithCode("not.supported.when.isSelfServiceUser.is.false",
+                baseDataValidator.reset().parameter(CLIENTS).failWithCode("not.supported.when.isSelfServiceUser.is.false",
                         "clients parameter is not supported when isSelfServiceUser parameter is false");
             } else {
-                final JsonArray clientsArray = this.fromApiJsonHelper.extractJsonArrayNamed(AppUserConstants.CLIENTS, element);
-                baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).value(clientsArray).jsonArrayNotEmpty();
+                final JsonArray clientsArray = this.fromApiJsonHelper.extractJsonArrayNamed(CLIENTS, element);
+                baseDataValidator.reset().parameter(CLIENTS).value(clientsArray).jsonArrayNotEmpty();
 
                 for (JsonElement client : clientsArray) {
                     Long clientId = client.getAsLong();
-                    baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).value(clientId).longGreaterThanZero();
+                    baseDataValidator.reset().parameter(CLIENTS).value(clientId).longGreaterThanZero();
                 }
             }
         }
@@ -166,7 +165,33 @@ public final class UserDataValidator {
         }
     }
 
-    public void validateForUpdate(final String json) {
+    private Set<String> getParamNamesFromRequest(final String json) {
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+        if (element.isJsonObject()) {
+            return ((JsonObject) element).keySet();
+        }
+        return Set.of();
+    }
+
+    void validateFieldLevelACL(final String json, AppUser authenticatedUser) {
+        if (!authenticatedUser.hasAnyPermission("ALL_FUNCTIONS", "UPDATE_USER")) {
+            Set<String> paramNamesFromRequest = getParamNamesFromRequest(json);
+            if (authenticatedUser.isSelfServiceUser()) {
+                // selfService user can change the clients and the password
+                paramNamesFromRequest.removeAll(Set.of(CLIENTS, PASSWORD, REPEAT_PASSWORD));
+            } else {
+                // user without permission can only change the password
+                paramNamesFromRequest.removeAll(Set.of(PASSWORD, REPEAT_PASSWORD));
+            }
+            if (paramNamesFromRequest.size() > 0) {
+                throw new PlatformApiDataValidationException(
+                        List.of(ApiParameterError.parameterError("not.enough.permission.to.update.fields",
+                                "Current user has no permission to update fields", String.join(",", paramNamesFromRequest))));
+            }
+        }
+    }
+
+    public void validateForChangePassword(final String json, AppUser authenticatedUser) {
         if (StringUtils.isBlank(json)) {
             throw new InvalidJsonException();
         }
@@ -174,7 +199,28 @@ public final class UserDataValidator {
         final Type typeOfMap = new TypeToken<Map<String, Object>>() {
 
         }.getType();
-        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, SUPPORTED_PARAMETERS);
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, CHANGE_PASSWORD_SUPPORTED_PARAMETERS);
+
+        final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
+        final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("user");
+
+        final JsonElement element = this.fromApiJsonHelper.parse(json);
+
+        validatePassword(baseDataValidator, element);
+
+        throwExceptionIfValidationWarningsExist(dataValidationErrors);
+        validateFieldLevelACL(json, authenticatedUser);
+    }
+
+    public void validateForUpdate(final String json, AppUser authenticatedUser) {
+        if (StringUtils.isBlank(json)) {
+            throw new InvalidJsonException();
+        }
+
+        final Type typeOfMap = new TypeToken<Map<String, Object>>() {
+
+        }.getType();
+        this.fromApiJsonHelper.checkForUnsupportedParameters(typeOfMap, json, UPDATE_SUPPORTED_PARAMETERS);
 
         final List<ApiParameterError> dataValidationErrors = new ArrayList<>();
         final DataValidatorBuilder baseDataValidator = new DataValidatorBuilder(dataValidationErrors).resource("user");
@@ -217,17 +263,7 @@ public final class UserDataValidator {
         }
 
         if (this.fromApiJsonHelper.parameterExists(PASSWORD, element)) {
-            final String password = this.fromApiJsonHelper.extractStringNamed(PASSWORD, element);
-            final String repeatPassword = this.fromApiJsonHelper.extractStringNamed(REPEAT_PASSWORD, element);
-
-            final PasswordValidationPolicy validationPolicy = this.passwordValidationPolicy.findActivePasswordValidationPolicy();
-            final String regex = validationPolicy.getRegex();
-            final String description = validationPolicy.getDescription();
-            baseDataValidator.reset().parameter(PASSWORD).value(password).matchesRegularExpression(regex, description);
-
-            if (StringUtils.isNotBlank(password)) {
-                baseDataValidator.reset().parameter(PASSWORD).value(password).equalToParameter(REPEAT_PASSWORD, repeatPassword);
-            }
+            validatePassword(baseDataValidator, element);
         }
 
         if (this.fromApiJsonHelper.parameterExists(PASSWORD_NEVER_EXPIRE, element)) {
@@ -243,21 +279,36 @@ public final class UserDataValidator {
             }
         }
 
-        if (this.fromApiJsonHelper.parameterExists(AppUserConstants.CLIENTS, element)) {
+        if (this.fromApiJsonHelper.parameterExists(CLIENTS, element)) {
             if (isSelfServiceUser != null && !isSelfServiceUser) {
-                baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).failWithCode("not.supported.when.isSelfServiceUser.is.false",
+                baseDataValidator.reset().parameter(CLIENTS).failWithCode("not.supported.when.isSelfServiceUser.is.false",
                         "clients parameter is not supported when isSelfServiceUser parameter is false");
             } else {
-                final JsonArray clientsArray = this.fromApiJsonHelper.extractJsonArrayNamed(AppUserConstants.CLIENTS, element);
-                baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).value(clientsArray).jsonArrayNotEmpty();
+                final JsonArray clientsArray = this.fromApiJsonHelper.extractJsonArrayNamed(CLIENTS, element);
+                baseDataValidator.reset().parameter(CLIENTS).value(clientsArray).jsonArrayNotEmpty();
 
                 for (JsonElement client : clientsArray) {
                     Long clientId = client.getAsLong();
-                    baseDataValidator.reset().parameter(AppUserConstants.CLIENTS).value(clientId).longGreaterThanZero();
+                    baseDataValidator.reset().parameter(CLIENTS).value(clientId).longGreaterThanZero();
                 }
             }
         }
 
         throwExceptionIfValidationWarningsExist(dataValidationErrors);
+        validateFieldLevelACL(json, authenticatedUser);
+    }
+
+    private void validatePassword(DataValidatorBuilder baseDataValidator, JsonElement element) {
+        final String password = this.fromApiJsonHelper.extractStringNamed(PASSWORD, element);
+        final String repeatPassword = this.fromApiJsonHelper.extractStringNamed(REPEAT_PASSWORD, element);
+
+        final PasswordValidationPolicy validationPolicy = this.passwordValidationPolicy.findActivePasswordValidationPolicy();
+        final String regex = validationPolicy.getRegex();
+        final String description = validationPolicy.getDescription();
+        DataValidatorBuilder validator = baseDataValidator.reset().parameter(PASSWORD).value(password).matchesRegularExpression(regex,
+                description);
+        if (StringUtils.isNotBlank(password)) {
+            validator.equalToParameter(REPEAT_PASSWORD, repeatPassword);
+        }
     }
 }

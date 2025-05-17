@@ -19,40 +19,34 @@
 package org.apache.fineract.organisation.monetary.api;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.util.Collection;
-import org.apache.fineract.organisation.monetary.data.CurrencyData;
 
 /**
  * Created by sanyam on 14/8/17.
  */
-final class CurrenciesApiResourceSwagger {
+public final class CurrenciesApiResourceSwagger {
 
     private CurrenciesApiResourceSwagger() {
 
     }
 
-    @Schema(description = "GetCurrenciesResponse")
-    public static final class GetCurrenciesResponse {
+    public static final class CurrencyItem {
 
-        private GetCurrenciesResponse() {
+        private CurrencyItem() {}
 
-        }
-
-        public Collection<CurrencyData> selectedCurrencyOptions;
-        public Collection<CurrencyData> currencyOptions;
-    }
-
-    @Schema(description = "PutCurrenciesRequest")
-    public static final class PutCurrenciesRequest {
-
-        private PutCurrenciesRequest() {
-
-        }
-
-        @Schema(example = "[\"KES\",\n" + "        \"BND\",\n" + "        \"LBP\",\n" + "        \"GHC\",\n" + "        \"USD\",\n"
-                + "        \"XOF\",\n" + "        \"AED\",\n" + "        \"AMD\"]")
-        public String[] currencies;
-
+        @Schema(example = "USD")
+        public String code;
+        @Schema(example = "US Dollar")
+        public String name;
+        @Schema(example = "2")
+        public Integer decimalPlaces;
+        @Schema(example = "100")
+        public Integer inMultiplesOf;
+        @Schema(example = "$")
+        public String displaySymbol;
+        @Schema(example = "currency.USD")
+        public String nameCode;
+        @Schema(example = "US Dollar ($)")
+        public String displayLabel;
     }
 
     @Schema(description = "PutCurrenciesResponse")

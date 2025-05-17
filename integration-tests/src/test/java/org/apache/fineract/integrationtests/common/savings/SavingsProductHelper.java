@@ -26,6 +26,8 @@ import io.restassured.specification.ResponseSpecification;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.fineract.client.models.GetSavingsProductsProductIdResponse;
+import org.apache.fineract.client.util.JSON;
 import org.apache.fineract.integrationtests.common.Utils;
 import org.apache.fineract.integrationtests.common.accounting.Account;
 import org.slf4j.Logger;
@@ -37,6 +39,7 @@ public class SavingsProductHelper {
     private static final Logger LOG = LoggerFactory.getLogger(SavingsProductHelper.class);
     private static final String SAVINGS_PRODUCT_URL = "/fineract-provider/api/v1/savingsproducts";
     private static final String CREATE_SAVINGS_PRODUCT_URL = SAVINGS_PRODUCT_URL + "?" + Utils.TENANT_IDENTIFIER;
+    private static final Gson GSON = new JSON().getGson();
 
     private static final String LOCALE = "en_GB";
     private static final String DIGITS_AFTER_DECIMAL = "4";
@@ -56,10 +59,11 @@ public class SavingsProductHelper {
     private static final String DAYS_365 = "365";
     private static final String NONE = "1";
     private static final String CASH_BASED = "2";
+    private static final String ACCRUAL_PERIODIC = "3";
 
-    private String nameOfSavingsProduct = Utils.randomNameGenerator("SAVINGS_PRODUCT_", 6);
-    private String shortName = Utils.randomNameGenerator("", 4);
-    private String description = Utils.randomNameGenerator("", 20);
+    private String nameOfSavingsProduct = Utils.uniqueRandomStringGenerator("SAVINGS_PRODUCT_", 6);
+    private String shortName = Utils.uniqueRandomStringGenerator("", 4);
+    private String description = Utils.randomStringGenerator("", 20);
     private String interestCompoundingPeriodType = "4";
     private String interestPostingPeriodType = "4";
     private String interestCalculationType = INTEREST_CALCULATION_USING_DAILY_BALANCE;
@@ -98,6 +102,10 @@ public class SavingsProductHelper {
     private Integer gsimID = null;
     private String nominalAnnualInterestRateOverdraft = null;
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public String build() {
         final HashMap<String, String> map = new HashMap<>();
 
@@ -142,6 +150,9 @@ public class SavingsProductHelper {
         }
         if (this.accountingRule.equals(CASH_BASED)) {
             map.putAll(getAccountMappingForCashBased());
+        }
+        if (this.accountingRule.equals(ACCRUAL_PERIODIC)) {
+            map.putAll(getAccountMappingForAccrualBased());
         }
         if (this.isDormancyTrackingActive) {
             map.put("isDormancyTrackingActive", Boolean.toString(this.isDormancyTrackingActive));
@@ -216,6 +227,12 @@ public class SavingsProductHelper {
         return this;
     }
 
+    public SavingsProductHelper withAccountingRuleAsAccrualBased(final Account[] account_list) {
+        this.accountingRule = ACCRUAL_PERIODIC;
+        this.accountList = account_list;
+        return this;
+    }
+
     public SavingsProductHelper withAccountingRuleAsCashBased(final Account[] account_list) {
         this.accountingRule = CASH_BASED;
         this.accountList = account_list;
@@ -276,6 +293,10 @@ public class SavingsProductHelper {
         return this;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     private Map<String, String> getAccountMappingForCashBased() {
         final Map<String, String> map = new HashMap<>();
         if (accountList != null) {
@@ -306,11 +327,56 @@ public class SavingsProductHelper {
         return map;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
+    private Map<String, String> getAccountMappingForAccrualBased() {
+        final Map<String, String> map = new HashMap<>();
+        if (accountList != null) {
+            for (int i = 0; i < this.accountList.length; i++) {
+                if (this.accountList[i].getAccountType().equals(Account.AccountType.ASSET)) {
+                    final String ID = this.accountList[i].getAccountID().toString();
+                    map.put("savingsReferenceAccountId", ID);
+                    map.put("overdraftPortfolioControlId", ID);
+                    map.put("feesReceivableAccountId", ID);
+                    map.put("penaltiesReceivableAccountId", ID);
+                }
+                if (this.accountList[i].getAccountType().equals(Account.AccountType.LIABILITY)) {
+                    final String ID = this.accountList[i].getAccountID().toString();
+                    map.put("savingsControlAccountId", ID);
+                    map.put("transfersInSuspenseAccountId", ID);
+                    map.put("interestPayableAccountId", ID);
+                }
+                if (this.accountList[i].getAccountType().equals(Account.AccountType.EXPENSE)) {
+                    final String ID = this.accountList[i].getAccountID().toString();
+                    map.put("interestOnSavingsAccountId", ID);
+                    map.put("writeOffAccountId", ID);
+                }
+                if (this.accountList[i].getAccountType().equals(Account.AccountType.INCOME)) {
+                    final String ID = this.accountList[i].getAccountID().toString();
+                    map.put("incomeFromFeeAccountId", ID);
+                    map.put("incomeFromPenaltyAccountId", ID);
+                    map.put("incomeFromInterestId", ID);
+                }
+            }
+        }
+        return map;
+    }
+
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static Integer createSavingsProduct(final String savingsProductJSON, final RequestSpecification requestSpec,
             final ResponseSpecification responseSpec) {
         return Utils.performServerPost(requestSpec, responseSpec, CREATE_SAVINGS_PRODUCT_URL, savingsProductJSON, "resourceId");
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static void verifySavingsProductCreatedOnServer(final RequestSpecification requestSpec, final ResponseSpecification responseSpec,
             final Integer generatedProductID) {
         LOG.info("------------------------------CHECK CLIENT DETAILS------------------------------------\n");
@@ -325,6 +391,18 @@ public class SavingsProductHelper {
         this.daysToDormancy = "60";
         this.daysToEscheat = "90";
         return this;
+    }
+
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
+    public static GetSavingsProductsProductIdResponse getSavingsProductById(final RequestSpecification requestSpec,
+            final ResponseSpecification responseSpec, final Integer productId) {
+        LOG.info("-------------------- RETRIEVING SAVINGS DEPOSIT PRODUCT BY ID --------------------------");
+        final String GET_PRODUCT_BY_ID_URL = SAVINGS_PRODUCT_URL + "/" + productId + "?" + Utils.TENANT_IDENTIFIER;
+        final String response = Utils.performServerGet(requestSpec, responseSpec, GET_PRODUCT_BY_ID_URL);
+        return GSON.fromJson(response, GetSavingsProductsProductIdResponse.class);
     }
 
 }

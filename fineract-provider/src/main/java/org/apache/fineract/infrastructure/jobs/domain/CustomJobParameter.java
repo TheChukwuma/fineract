@@ -18,9 +18,9 @@
  */
 package org.apache.fineract.infrastructure.jobs.domain;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -31,8 +31,8 @@ import org.apache.fineract.infrastructure.core.domain.AbstractPersistableCustom;
 @NoArgsConstructor
 @Getter
 @Setter
-public class CustomJobParameter extends AbstractPersistableCustom {
+public class CustomJobParameter extends AbstractPersistableCustom<Long> {
 
-    @Column(name = "parameter_json", nullable = false)
+    @Column(name = "parameter_json", nullable = false, columnDefinition = "json")
     private String parameterJson;
 }

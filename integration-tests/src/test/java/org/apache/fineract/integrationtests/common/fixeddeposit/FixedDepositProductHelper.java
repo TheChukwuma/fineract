@@ -38,6 +38,10 @@ public class FixedDepositProductHelper {
     private final RequestSpecification requestSpec;
     private final ResponseSpecification responseSpec;
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public FixedDepositProductHelper(final RequestSpecification requestSpec, final ResponseSpecification responseSpec) {
         this.requestSpec = requestSpec;
         this.responseSpec = responseSpec;
@@ -71,9 +75,9 @@ public class FixedDepositProductHelper {
     private static final String WHOLE_TERM = "1";
     private static final String TILL_PREMATURE_WITHDRAWAL = "2";
 
-    private String name = Utils.randomNameGenerator("FIXED_DEPOSIT_PRODUCT_", 6);
-    private String shortName = Utils.randomNameGenerator("", 4);
-    private String description = Utils.randomNameGenerator("", 20);
+    private String name = Utils.uniqueRandomStringGenerator("FIXED_DEPOSIT_PRODUCT_", 6);
+    private String shortName = Utils.uniqueRandomStringGenerator("", 4);
+    private String description = Utils.randomStringGenerator("", 20);
     private String interestCompoundingPeriodType = MONTHLY;
     private String interestPostingPeriodType = MONTHLY;
     private String interestCalculationType = INTEREST_CALCULATION_USING_DAILY_BALANCE;
@@ -98,10 +102,18 @@ public class FixedDepositProductHelper {
     private Boolean withHoldTax = false;
     private String taxGroupId = null;
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public String build(final String validFrom, final String validTo) {
         return build(validFrom, validTo, true);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public String build(final String validFrom, final String validTo, final boolean withCharts) {
         final HashMap<String, Object> map = new HashMap<>();
 
@@ -157,6 +169,10 @@ public class FixedDepositProductHelper {
         return FixedDepositProductCreateJson;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public List<HashMap<String, String>> constructChartSlabWithPeriodRange() {
         List<HashMap<String, String>> chartSlabs = new ArrayList<HashMap<String, String>>();
         HashMap<String, String> chartSlabsMap1 = new HashMap<>();
@@ -196,6 +212,10 @@ public class FixedDepositProductHelper {
         return chartSlabs;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public List<HashMap<String, String>> constructChartSlabWithPeriodAndAmountRange() {
         List<HashMap<String, String>> chartSlabs = new ArrayList<HashMap<String, String>>();
         HashMap<String, String> chartSlabsMap1 = new HashMap<>();
@@ -283,6 +303,10 @@ public class FixedDepositProductHelper {
         return chartSlabs;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public List<HashMap<String, String>> constructChartSlabWithAmountAndPeriodRange() {
         this.isPrimaryGroupingByAmount = true;
         List<HashMap<String, String>> chartSlabs = new ArrayList<HashMap<String, String>>();
@@ -329,6 +353,10 @@ public class FixedDepositProductHelper {
         return chartSlabs;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public List<HashMap<String, String>> constructChartSlabWithAmountRange() {
         this.isPrimaryGroupingByAmount = true;
         List<HashMap<String, String>> chartSlabs = new ArrayList<HashMap<String, String>>();
@@ -397,6 +425,10 @@ public class FixedDepositProductHelper {
         return this;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     private Map<String, String> getAccountMappingForCashBased() {
         final Map<String, String> map = new HashMap<>();
         if (accountList != null) {
@@ -424,6 +456,10 @@ public class FixedDepositProductHelper {
         return map;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static Integer createFixedDepositProduct(final String fixedDepositProductCreateJson, final RequestSpecification requestSpec,
             final ResponseSpecification responseSpec) {
         LOG.info("--------------------- CREATING FIXED DEPOSIT PRODUCT ------------------------");
@@ -431,6 +467,10 @@ public class FixedDepositProductHelper {
                 CommonConstants.RESPONSE_RESOURCE_ID);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static ArrayList retrieveAllFixedDepositProducts(final RequestSpecification requestSpec,
             final ResponseSpecification responseSpec) {
         LOG.info("-------------------- RETRIEVING ALL FIXED DEPOSIT PRODUCTS ---------------------");
@@ -439,6 +479,10 @@ public class FixedDepositProductHelper {
         return response;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static HashMap retrieveFixedDepositProductById(final RequestSpecification requestSpec, final ResponseSpecification responseSpec,
             final String productId) {
         LOG.info("------------------------ RETRIEVING FIXED DEPOSIT PRODUCT BY ID ------------------------");
@@ -447,6 +491,10 @@ public class FixedDepositProductHelper {
         return response;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static ArrayList getInterestRateChartSlabsByProductId(final RequestSpecification requestSpec,
             final ResponseSpecification responseSpec, final Integer productId) {
         LOG.info("-------------------- RETRIEVE INTEREST CHART BY PRODUCT ID ---------------------");

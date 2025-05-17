@@ -36,9 +36,11 @@ import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.mapping.NullAuthoritiesMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+/**
+ * Tasklet to initialize the thread local context for job execution
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class InitialisationTasklet implements Tasklet {
@@ -49,16 +51,20 @@ public class InitialisationTasklet implements Tasklet {
     public RepeatStatus execute(@NotNull StepContribution contribution, @NotNull ChunkContext chunkContext) throws Exception {
         HashMap<BusinessDateType, LocalDate> businessDates = ThreadLocalContextUtil.getBusinessDates();
         AppUser user = userRepository.fetchSystemUser();
-        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user, user.getPassword(),
-                new NullAuthoritiesMapper().mapAuthorities(user.getAuthorities()));
+        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user, user.getPassword(), user.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
         ThreadLocalContextUtil.setActionContext(ActionContext.COB);
+
         String businessDateString = Objects.requireNonNull((String) chunkContext.getStepContext().getStepExecution().getJobExecution()
                 .getExecutionContext().get(LoanCOBConstant.BUSINESS_DATE_PARAMETER_NAME));
         LocalDate businessDate = LocalDate.parse(businessDateString, DateTimeFormatter.ISO_DATE);
+
         businessDates.put(BusinessDateType.COB_DATE, businessDate);
         businessDates.put(BusinessDateType.BUSINESS_DATE, businessDate.plusDays(1));
         ThreadLocalContextUtil.setBusinessDates(businessDates);
+
+        log.debug("Initialized context with Business Date [{}], COB Date [{}] and Action Context [{}]", businessDate.plusDays(1),
+                businessDate, ThreadLocalContextUtil.getActionContext());
         return RepeatStatus.FINISHED;
     }
 }

@@ -47,6 +47,7 @@ import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.PaginationHelper;
 import org.apache.fineract.infrastructure.core.service.database.DatabaseSpecificSQLGenerator;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.SqlValidator;
 import org.apache.fineract.infrastructure.security.utils.ColumnValidator;
 import org.apache.fineract.infrastructure.security.utils.SQLBuilder;
 import org.apache.fineract.organisation.office.data.OfficeData;
@@ -69,9 +70,7 @@ import org.apache.fineract.useradministration.domain.AppUser;
 import org.apache.fineract.useradministration.service.AppUserReadPlatformService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.stereotype.Service;
 
-@Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
@@ -94,6 +93,7 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     private final SavingsProductReadPlatformService savingsProductReadPlatformService;
     private final DepositProductReadPlatformService depositProductReadPlatformService;
     private final ColumnValidator columnValidator;
+    private final SqlValidator sqlValidator;
 
     private static final class AuditMapper implements RowMapper<AuditData> {
 
@@ -169,8 +169,8 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     }
 
     @Override
-    public Collection<AuditData> retrieveAuditEntries(final SQLBuilder extraCriteria, final boolean includeJson) {
-        return retrieveEntries("audit", extraCriteria, " order by aud.id DESC limit " + PaginationParameters.getCheckedLimit(null),
+    public List<AuditData> retrieveAuditEntries(final SQLBuilder extraCriteria, final boolean includeJson) {
+        return retrieveEntries("audit", extraCriteria, " order by aud.id DESC limit " + PaginationParameters.DEFAULT_MAX_LIMIT,
                 includeJson);
     }
 
@@ -178,6 +178,8 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     public Page<AuditData> retrievePaginatedAuditEntries(final SQLBuilder extraCriteria, final boolean includeJson,
             final PaginationParameters parameters) {
 
+        sqlValidator.validate(parameters.getOrderBy());
+        sqlValidator.validate(parameters.getSortOrder());
         this.paginationParametersDataValidator.validateParameterValues(parameters, supportedOrderByValues, "audits");
         final AppUser currentUser = this.context.authenticatedUser();
         final String hierarchy = currentUser.getOffice().getHierarchy();
@@ -187,14 +189,14 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
         sqlBuilder.append("select " + sqlGenerator.calcFoundRows() + " ");
         sqlBuilder.append(rm.schema(includeJson, hierarchy));
         sqlBuilder.append(' ').append(extraCriteria.getSQLTemplate());
-        if (parameters.isOrderByRequested()) {
+        if (parameters.hasOrderBy()) {
             sqlBuilder.append(' ').append(parameters.orderBySql());
             this.columnValidator.validateSqlInjection(sqlBuilder.toString(), parameters.orderBySql());
         } else {
             sqlBuilder.append(' ').append(' ').append(" order by aud.id DESC");
         }
 
-        if (parameters.isLimited()) {
+        if (parameters.hasLimit()) {
             sqlBuilder.append(' ').append(parameters.limitSql());
             this.columnValidator.validateSqlInjection(sqlBuilder.toString(), parameters.limitSql());
         }
@@ -205,12 +207,12 @@ public class AuditReadPlatformServiceImpl implements AuditReadPlatformService {
     }
 
     @Override
-    public Collection<AuditData> retrieveAllEntriesToBeChecked(final SQLBuilder extraCriteria, final boolean includeJson) {
+    public List<AuditData> retrieveAllEntriesToBeChecked(final SQLBuilder extraCriteria, final boolean includeJson) {
         extraCriteria.addCriteria("aud.status = ", 2);
         return retrieveEntries("makerchecker", extraCriteria, " order by aud.id, mk.username", includeJson);
     }
 
-    private Collection<AuditData> retrieveEntries(final String useType, final SQLBuilder extraCriteria, final String groupAndOrderBySQL,
+    private List<AuditData> retrieveEntries(final String useType, final SQLBuilder extraCriteria, final String groupAndOrderBySQL,
             final boolean includeJson) {
 
         if ((!useType.equals("audit") && !useType.equals("makerchecker"))) {

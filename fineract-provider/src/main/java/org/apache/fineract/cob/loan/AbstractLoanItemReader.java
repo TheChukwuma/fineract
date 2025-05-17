@@ -18,12 +18,11 @@
  */
 package org.apache.fineract.cob.loan;
 
-import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.fineract.cob.exceptions.LoanAccountWasAlreadyLockedOrProcessed;
 import org.apache.fineract.cob.exceptions.LoanReadException;
 import org.apache.fineract.portfolio.loanaccount.domain.Loan;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanRepository;
@@ -38,29 +37,22 @@ import org.springframework.batch.item.ItemReader;
 @RequiredArgsConstructor
 public abstract class AbstractLoanItemReader implements ItemReader<Loan> {
 
-    private final LoanRepository loanRepository;
+    protected final LoanRepository loanRepository;
 
     @Setter(AccessLevel.PROTECTED)
-    private List<Long> alreadyLockedOrProcessedAccounts;
-    @Setter(AccessLevel.PROTECTED)
-    private List<Long> remainingData;
-    private Long loanId;
+    private LinkedBlockingQueue<Long> remainingData;
 
     @Override
     public Loan read() throws Exception {
-        try {
-            if (remainingData.size() > 0) {
-                loanId = remainingData.remove(0);
-                if (alreadyLockedOrProcessedAccounts != null && alreadyLockedOrProcessedAccounts.remove(loanId)) {
-                    throw new LoanAccountWasAlreadyLockedOrProcessed(loanId);
-                }
+        final Long loanId = remainingData.poll();
+        if (loanId != null) {
+            try {
                 return loanRepository.findById(loanId).orElseThrow(() -> new LoanNotFoundException(loanId));
+            } catch (Exception e) {
+                throw new LoanReadException(loanId, e);
             }
-        } catch (Exception e) {
-            throw new LoanReadException(loanId, e);
         }
         return null;
-
     }
 
     @AfterStep

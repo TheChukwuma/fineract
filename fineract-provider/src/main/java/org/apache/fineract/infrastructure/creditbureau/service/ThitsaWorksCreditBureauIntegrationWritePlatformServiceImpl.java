@@ -18,15 +18,17 @@
  */
 package org.apache.fineract.infrastructure.creditbureau.service;
 
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.APPLICATION_FORM_URLENCODED;
-import static javax.ws.rs.core.MediaType.MULTIPART_FORM_DATA;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_FORM_URLENCODED;
+import static jakarta.ws.rs.core.MediaType.MULTIPART_FORM_DATA;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import java.io.File;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -37,8 +39,8 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -65,18 +67,14 @@ import org.apache.fineract.infrastructure.creditbureau.domain.TokenRepositoryWra
 import org.apache.fineract.infrastructure.creditbureau.serialization.CreditBureauTokenCommandFromApiJsonDeserializer;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Component
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implements ThitsaWorksCreditBureauIntegrationWritePlatformService {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl.class);
     public static final String UPLOAD_CREDIT_REPORT = "UploadCreditReport";
     public static final String RESPONSE_MESSAGE = "ResponseMessage";
     public static final String IS_NOT_AVAILABLE_SUFFIX = ".is.not.available";
@@ -85,28 +83,7 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
     private final TokenRepositoryWrapper tokenRepositoryWrapper;
     private final CreditBureauConfigurationRepositoryWrapper configDataRepository;
     private final CreditBureauTokenCommandFromApiJsonDeserializer fromApiJsonDeserializer;
-
     private final OkHttpClient client;
-
-    @Autowired
-    public ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl(final PlatformSecurityContext context,
-            final FromJsonHelper fromApiJsonHelper, final TokenRepositoryWrapper tokenRepositoryWrapper,
-            final CreditBureauConfigurationRepositoryWrapper configDataRepository,
-            final CreditBureauTokenCommandFromApiJsonDeserializer fromApiJsonDeserializer) {
-        this(new OkHttpClient(), context, fromApiJsonHelper, tokenRepositoryWrapper, configDataRepository, fromApiJsonDeserializer);
-    }
-
-    public ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl(final OkHttpClient okHttpClient,
-            final PlatformSecurityContext context, final FromJsonHelper fromApiJsonHelper,
-            final TokenRepositoryWrapper tokenRepositoryWrapper, final CreditBureauConfigurationRepositoryWrapper configDataRepository,
-            final CreditBureauTokenCommandFromApiJsonDeserializer fromApiJsonDeserializer) {
-        this.client = okHttpClient;
-        this.context = context;
-        this.tokenRepositoryWrapper = tokenRepositoryWrapper;
-        this.configDataRepository = configDataRepository;
-        this.fromApiJsonHelper = fromApiJsonHelper;
-        this.fromApiJsonDeserializer = fromApiJsonDeserializer;
-    }
 
     @Transactional
     @Override
@@ -125,11 +102,11 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
         Request request = null;
         Request.Builder baseRequestBuilder = createRequestBuilder(subscriptionKey, subscriptionId, token, okHttpUrl);
         switch (process) {
-            case UPLOAD_CREDIT_REPORT -> request = createRequest(baseRequestBuilder, () -> new MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("file", fileData.getFileName(), RequestBody.create(file, MediaType.parse("multipart/form-data")))
-                    .addFormDataPart("BODY", "formdata").addFormDataPart("userName", userName).build(),
-                    (requestBody, builder) -> builder.header(CONTENT_TYPE, MULTIPART_FORM_DATA).post(requestBody).build());
+            case UPLOAD_CREDIT_REPORT ->
+                request = createRequest(baseRequestBuilder, () -> new MultipartBody.Builder().setType(MultipartBody.FORM)
+                        .addFormDataPart("file", fileData.getFileName(), RequestBody.create(file, MediaType.parse("multipart/form-data")))
+                        .addFormDataPart("BODY", "formdata").addFormDataPart("userName", userName).build(),
+                        (requestBody, builder) -> builder.header(CONTENT_TYPE, MULTIPART_FORM_DATA).post(requestBody).build());
             case "CreditReport" -> request = createRequest(baseRequestBuilder,
                     builder -> builder.header(CONTENT_TYPE, APPLICATION_FORM_URLENCODED).get().build());
             case "token" -> request = createRequest(baseRequestBuilder,
@@ -151,7 +128,7 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
             responseMessage = response.body().string();
         } catch (IOException e) {
 
-            LOG.error("error occured in HTTP request-response method.", e);
+            log.error("error occured in HTTP request-response method.", e);
         }
 
         if (responseCode != HttpURLConnection.HTTP_OK) {
@@ -420,7 +397,7 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
             LocalDate current = DateUtils.getLocalDateOfTenant();
             LocalDate getExpiryDate = creditBureauToken.getExpires();
 
-            if (getExpiryDate.isBefore(current)) {
+            if (DateUtils.isBefore(getExpiryDate, current)) {
                 this.tokenRepositoryWrapper.delete(creditBureauToken);
                 creditBureauToken = null;
             }
@@ -452,7 +429,8 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
             JsonCommand apicommand = JsonCommand.from(json, parsedCommand, this.fromApiJsonHelper, wrapper.getEntityName(),
                     wrapper.getEntityId(), wrapper.getSubentityId(), wrapper.getGroupId(), wrapper.getClientId(), wrapper.getLoanId(),
                     wrapper.getSavingsId(), wrapper.getTransactionId(), wrapper.getHref(), wrapper.getProductId(),
-                    wrapper.getCreditBureauId(), wrapper.getOrganisationCreditBureauId(), wrapper.getJobName());
+                    wrapper.getCreditBureauId(), wrapper.getOrganisationCreditBureauId(), wrapper.getJobName(),
+                    wrapper.getLoanExternalId());
 
             this.fromApiJsonDeserializer.validateForCreate(apicommand.json());
 
@@ -494,7 +472,7 @@ public class ThitsaWorksCreditBureauIntegrationWritePlatformServiceImpl implemen
                         "creditBureau.Configuration." + configurationParameterName + IS_NOT_AVAILABLE_SUFFIX);
 
             }
-        } catch (NullPointerException ex) {
+        } catch (Exception ex) {
             baseDataValidator.reset().failWithCode("creditBureau.configuration.is.not.available");
             throw new PlatformApiDataValidationException("creditBureau.Configuration.is.not.available" + ex,
                     "creditBureau.Configuration.is.not.available", dataValidationErrors);

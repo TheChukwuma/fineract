@@ -18,10 +18,10 @@
  */
 package org.apache.fineract.infrastructure.security.domain;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,7 +37,7 @@ import org.apache.fineract.infrastructure.security.constants.TwoFactorConfigurat
 @Setter
 @NoArgsConstructor
 @Accessors(chain = true)
-public class TwoFactorConfiguration extends AbstractPersistableCustom {
+public class TwoFactorConfiguration extends AbstractPersistableCustom<Long> {
 
     @Column(name = "name", nullable = false, length = 32)
     private String name;

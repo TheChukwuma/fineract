@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.HashMap;
 import java.util.UUID;
-import org.apache.fineract.client.models.GetDelinquencyBucketsResponse;
+import org.apache.fineract.client.models.DelinquencyBucketData;
 import org.apache.fineract.client.models.GetLoanProductsProductIdResponse;
 import org.apache.fineract.client.models.GetLoanTransactionRelation;
 import org.apache.fineract.client.models.GetLoansLoanIdTransactionsTransactionIdResponse;
@@ -42,11 +42,14 @@ import org.apache.fineract.integrationtests.common.Utils;
 import org.apache.fineract.integrationtests.common.charges.ChargesHelper;
 import org.apache.fineract.integrationtests.common.loans.LoanApplicationTestBuilder;
 import org.apache.fineract.integrationtests.common.loans.LoanProductTestBuilder;
+import org.apache.fineract.integrationtests.common.loans.LoanTestLifecycleExtension;
 import org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper;
 import org.apache.fineract.integrationtests.common.products.DelinquencyBucketsHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(LoanTestLifecycleExtension.class)
 public class LoanTransactionReverseReplayRelationTest {
 
     private ResponseSpecification responseSpec;
@@ -76,7 +79,7 @@ public class LoanTransactionReverseReplayRelationTest {
 
         // Delinquency Bucket
         final Integer delinquencyBucketId = DelinquencyBucketsHelper.createDelinquencyBucket(requestSpec, responseSpec);
-        final GetDelinquencyBucketsResponse delinquencyBucket = DelinquencyBucketsHelper.getDelinquencyBucket(requestSpec, responseSpec,
+        final DelinquencyBucketData delinquencyBucket = DelinquencyBucketsHelper.getDelinquencyBucket(requestSpec, responseSpec,
                 delinquencyBucketId);
 
         // Client and Loan account creation

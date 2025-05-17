@@ -18,6 +18,7 @@
  */
 package org.apache.fineract.organisation.office.api;
 
+import com.google.gson.Gson;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -27,24 +28,24 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
@@ -57,15 +58,18 @@ import org.apache.fineract.infrastructure.core.data.CommandProcessingResult;
 import org.apache.fineract.infrastructure.core.data.UploadRequest;
 import org.apache.fineract.infrastructure.core.serialization.ApiRequestJsonSerializationSettings;
 import org.apache.fineract.infrastructure.core.serialization.DefaultToApiJsonSerializer;
+import org.apache.fineract.infrastructure.core.serialization.GoogleGsonSerializerHelper;
+import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.SqlValidator;
 import org.apache.fineract.organisation.office.data.OfficeData;
 import org.apache.fineract.organisation.office.service.OfficeReadPlatformService;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.springframework.stereotype.Component;
 
-@Path("/offices")
+@Path("/v1/offices")
 @Component
 @Tag(name = "Offices", description = "Offices are used to model an MFIs structure. A hierarchical representation of offices is supported. There will always be at least one office (which represents the MFI or an MFIs head office). All subsequent offices added must have a parent office.")
 @RequiredArgsConstructor
@@ -79,6 +83,7 @@ public class OfficesApiResource {
 
     private static final String RESOURCE_NAME_FOR_PERMISSIONS = "OFFICE";
 
+    private final OfficeSwaggerMapper officeSwaggerMapper;
     private final PlatformSecurityContext context;
     private final OfficeReadPlatformService readPlatformService;
     private final DefaultToApiJsonSerializer<OfficeData> toApiJsonSerializer;
@@ -86,6 +91,9 @@ public class OfficesApiResource {
     private final PortfolioCommandSourceWritePlatformService commandsSourceWritePlatformService;
     private final BulkImportWorkbookService bulkImportWorkbookService;
     private final BulkImportWorkbookPopulatorService bulkImportWorkbookPopulatorService;
+    private final SqlValidator sqlValidator;
+
+    private final Gson gson = GoogleGsonSerializerHelper.createSimpleGson();
 
     @GET
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -99,7 +107,10 @@ public class OfficesApiResource {
             @QueryParam("orderBy") @Parameter(description = "orderBy") final String orderBy,
             @QueryParam("sortOrder") @Parameter(description = "sortOrder") final String sortOrder) {
         context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
-        final SearchParameters searchParameters = SearchParameters.forOffices(orderBy, sortOrder);
+        sqlValidator.validate(orderBy);
+        sqlValidator.validate(sortOrder);
+        final SearchParameters searchParameters = SearchParameters.builder().orphansOnly(false).isSelfUser(false).orderBy(orderBy)
+                .sortOrder(sortOrder).build();
         final Collection<OfficeData> offices = readPlatformService.retrieveAllOffices(onlyManualEntries, searchParameters);
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return toApiJsonSerializer.serialize(settings, offices, RESPONSE_DATA_PARAMETERS);
@@ -158,6 +169,25 @@ public class OfficesApiResource {
         return toApiJsonSerializer.serialize(settings, office, RESPONSE_DATA_PARAMETERS);
     }
 
+    @GET
+    @Path("/external-id/{externalId}")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Retrieve an Office using external id", description = "Example Requests:\n" + "\n" + "offices/external-id/asd123\n"
+            + "\n" + "\n" + "offices/external-id/asd123?template=true\n" + "\n" + "\n"
+            + "offices/external-id/asd123?fields=id,name,parentName")
+    public OfficesApiResourceSwagger.GetOfficesResponse retrieveOfficeByExternalId(
+            @PathParam("externalId") @Parameter(description = "externalId") final String externalId, @Context final UriInfo uriInfo) {
+        context.authenticatedUser().validateHasReadPermission(RESOURCE_NAME_FOR_PERMISSIONS);
+        final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
+        OfficeData office = readPlatformService.retrieveOfficeWithExternalId(ExternalIdFactory.produce(externalId));
+        if (settings.isTemplate()) {
+            final Collection<OfficeData> allowedParents = readPlatformService.retrieveAllowedParents(office.getId());
+            office = OfficeData.appendedTemplate(office, allowedParents);
+        }
+        return officeSwaggerMapper.toGetOfficesResponse(office);
+    }
+
     @PUT
     @Path("{officeId}")
     @Consumes({ MediaType.APPLICATION_JSON })
@@ -174,6 +204,24 @@ public class OfficesApiResource {
                 .build();
         final CommandProcessingResult result = commandsSourceWritePlatformService.logCommandSource(commandRequest);
         return toApiJsonSerializer.serialize(result);
+    }
+
+    @PUT
+    @Path("/external-id/{externalId}")
+    @Consumes({ MediaType.APPLICATION_JSON })
+    @Produces({ MediaType.APPLICATION_JSON })
+    @Operation(summary = "Update Office", description = "")
+    @RequestBody(required = true, content = @Content(schema = @Schema(implementation = OfficesApiResourceSwagger.PutOfficesOfficeIdRequest.class)))
+    public OfficesApiResourceSwagger.PutOfficesOfficeIdResponse updateOfficeWithExternalId(
+            @Parameter(description = "externalId") @PathParam("externalId") final String externalId,
+            final OfficesApiResourceSwagger.PutOfficesOfficeIdRequest apiRequestBody) {
+        OfficeData office = readPlatformService.retrieveOfficeWithExternalId(ExternalIdFactory.produce(externalId));
+        final CommandWrapper commandRequest = new CommandWrapperBuilder() //
+                .updateOffice(office.getId()) //
+                .withJson(gson.toJson(apiRequestBody)) //
+                .build();
+        final CommandProcessingResult result = commandsSourceWritePlatformService.logCommandSource(commandRequest);
+        return officeSwaggerMapper.toPutOfficesOfficeIdResponse(result);
     }
 
     @GET

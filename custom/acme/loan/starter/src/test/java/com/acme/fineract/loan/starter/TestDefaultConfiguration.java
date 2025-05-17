@@ -23,7 +23,11 @@ import static org.mockito.Mockito.mock;
 import org.apache.fineract.cob.COBBusinessStepService;
 import org.apache.fineract.cob.COBBusinessStepServiceImpl;
 import org.apache.fineract.cob.domain.BatchBusinessStepRepository;
+import org.apache.fineract.cob.service.ReloaderService;
+import org.apache.fineract.infrastructure.configuration.domain.ConfigurationDomainService;
 import org.apache.fineract.infrastructure.core.config.FineractProperties;
+import org.apache.fineract.infrastructure.core.diagnostics.performance.sampling.core.SamplingConfiguration;
+import org.apache.fineract.infrastructure.core.diagnostics.performance.sampling.core.SamplingServiceFactory;
 import org.apache.fineract.infrastructure.event.business.service.BusinessEventNotifierService;
 import org.apache.fineract.portfolio.loanaccount.domain.LoanAccountDomainService;
 import org.springframework.beans.factory.ListableBeanFactory;
@@ -46,8 +50,15 @@ public class TestDefaultConfiguration {
 
     @Bean
     public COBBusinessStepService cobBusinessStepService(BatchBusinessStepRepository batchBusinessStepRepository,
-            ApplicationContext context, ListableBeanFactory beanFactory, BusinessEventNotifierService businessEventNotifierService) {
-        return new COBBusinessStepServiceImpl(batchBusinessStepRepository, context, beanFactory, businessEventNotifierService);
+            ApplicationContext context, ListableBeanFactory beanFactory, BusinessEventNotifierService businessEventNotifierService,
+            ConfigurationDomainService configurationDomainService, ReloaderService reloaderService) {
+        return new COBBusinessStepServiceImpl(batchBusinessStepRepository, context, beanFactory, businessEventNotifierService,
+                configurationDomainService, reloaderService);
+    }
+
+    @Bean
+    public SamplingServiceFactory samplingServiceFactory(SamplingConfiguration samplingConfiguration) {
+        return new SamplingServiceFactory(samplingConfiguration);
     }
 
     @Bean

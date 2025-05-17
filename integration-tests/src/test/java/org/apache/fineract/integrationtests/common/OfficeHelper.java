@@ -22,19 +22,22 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
 import org.apache.fineract.client.models.GetOfficesResponse;
+import org.apache.fineract.client.models.PutOfficesOfficeIdRequest;
+import org.apache.fineract.client.models.PutOfficesOfficeIdResponse;
 import org.apache.fineract.client.util.JSON;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import retrofit2.Response;
 
 public class OfficeHelper {
 
@@ -46,29 +49,59 @@ public class OfficeHelper {
     private final RequestSpecification requestSpec;
     private final ResponseSpecification responseSpec;
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public OfficeHelper(final RequestSpecification requestSpec, final ResponseSpecification responseSpec) {
         this.requestSpec = requestSpec;
         this.responseSpec = responseSpec;
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public OfficeDomain retrieveOfficeByID(int id) {
         Object get = Utils.performServerGet(requestSpec, responseSpec, OFFICE_URL + "/" + id + "?" + Utils.TENANT_IDENTIFIER, "");
         final String json = new Gson().toJson(get);
         return new Gson().fromJson(json, new TypeToken<OfficeDomain>() {}.getType());
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static GetOfficesResponse getHeadOffice(final RequestSpecification requestSpec, final ResponseSpecification responseSpec) {
         String response = Utils.performServerGet(requestSpec, responseSpec,
                 OFFICE_URL + "/" + HEAD_OFFICE_ID + "?" + Utils.TENANT_IDENTIFIER);
         return GSON.fromJson(response, GetOfficesResponse.class);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public Integer createOffice(final String openingDate) {
         String json = getAsJSON(openingDate);
         return Utils.performServerPost(this.requestSpec, this.responseSpec, OFFICE_URL + "?" + Utils.TENANT_IDENTIFIER, json,
                 CommonConstants.RESPONSE_RESOURCE_ID);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
+    public Integer createOfficeWithExternalId(String externalId, final String openingDate) {
+        String json = getAsJSON(externalId, openingDate);
+        return Utils.performServerPost(this.requestSpec, this.responseSpec, OFFICE_URL + "?" + Utils.TENANT_IDENTIFIER, json,
+                CommonConstants.RESPONSE_RESOURCE_ID);
+    }
+
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public Integer updateOffice(int id, String name, String openingDate) {
         final HashMap<String, String> map = new HashMap<String, String>();
         map.put("name", name);
@@ -82,17 +115,48 @@ public class OfficeHelper {
                 new Gson().toJson(map), "resourceId");
     }
 
+    public Response<GetOfficesResponse> retrieveOfficeByExternalId(String externalId) throws IOException {
+        return FineractClientHelper.getFineractClient().offices.retrieveOfficeByExternalId(externalId).execute();
+    }
+
+    public Response<PutOfficesOfficeIdResponse> updateOfficeUsingExternalId(String externalId, String name, String openingDate)
+            throws IOException {
+        return FineractClientHelper.getFineractClient().offices
+                .updateOfficeWithExternalId(externalId,
+                        new PutOfficesOfficeIdRequest().name(name).openingDate(openingDate).dateFormat("dd MMMM yyyy").locale("en"))
+                .execute();
+    }
+
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public static String getAsJSON(final String openingDate) {
+        return getAsJSON(null, openingDate);
+    }
+
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
+    public static String getAsJSON(String externalId, final String openingDate) {
         final HashMap<String, String> map = new HashMap<>();
         map.put("parentId", "1");
-        map.put("name", Utils.randomNameGenerator("Office_", 4));
+        map.put("name", Utils.uniqueRandomStringGenerator("Office_", 4));
         map.put("dateFormat", "dd MMMM yyyy");
         map.put("locale", "en");
         map.put("openingDate", openingDate);
+        if (externalId != null) {
+            map.put("externalId", externalId);
+        }
         LOG.info("map :  {}", map);
         return new Gson().toJson(map);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public String importOfficeTemplate(File file) {
         String locale = "en";
         String dateFormat = "dd MMMM yyyy";
@@ -102,12 +166,20 @@ public class OfficeHelper {
 
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public String getOutputTemplateLocation(final String importDocumentId) {
         requestSpec.header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN);
         return Utils.performServerOutputTemplateLocationGet(requestSpec, responseSpec,
                 "/fineract-provider/api/v1/imports/getOutputTemplateLocation" + "?" + Utils.TENANT_IDENTIFIER, importDocumentId);
     }
 
+    // TODO: Rewrite to use fineract-client instead!
+    // Example: org.apache.fineract.integrationtests.common.loans.LoanTransactionHelper.disburseLoan(java.lang.Long,
+    // org.apache.fineract.client.models.PostLoansLoanIdRequest)
+    @Deprecated(forRemoval = true)
     public Workbook getOfficeWorkBook(final String dateFormat) throws IOException {
         requestSpec.header(HttpHeaders.CONTENT_TYPE, "application/vnd.ms-excel");
         byte[] byteArray = Utils.performGetBinaryResponse(requestSpec, responseSpec,

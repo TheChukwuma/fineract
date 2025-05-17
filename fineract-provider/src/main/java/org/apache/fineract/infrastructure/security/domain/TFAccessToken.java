@@ -18,13 +18,13 @@
  */
 package org.apache.fineract.infrastructure.security.domain;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -41,7 +41,7 @@ import org.apache.fineract.useradministration.domain.AppUser;
 @Setter
 @NoArgsConstructor
 @Accessors(chain = true)
-public class TFAccessToken extends AbstractPersistableCustom {
+public class TFAccessToken extends AbstractPersistableCustom<Long> {
 
     @Column(name = "token", nullable = false, length = 32)
     private String token;
@@ -67,19 +67,12 @@ public class TFAccessToken extends AbstractPersistableCustom {
     }
 
     public boolean isValid() {
-        return this.enabled && isDateInTheFuture(getValidTo()) && isDateInThePast(getValidFrom());
+        // valid_from is in the past inclusive, valid_to is in the future exclusive
+        return this.enabled && !DateUtils.isAfterTenantDateTime(getValidFrom()) && DateUtils.isAfterTenantDateTime(getValidTo());
     }
 
     public AccessTokenData toTokenData() {
         return new AccessTokenData().setToken(this.token).setValidFrom(getValidFrom().atZone(DateUtils.getDateTimeZoneOfTenant()))
                 .setValidTo(getValidTo().atZone(DateUtils.getDateTimeZoneOfTenant()));
-    }
-
-    private boolean isDateInTheFuture(LocalDateTime dateTime) {
-        return dateTime.isAfter(DateUtils.getLocalDateTimeOfTenant());
-    }
-
-    private boolean isDateInThePast(LocalDateTime dateTime) {
-        return (dateTime.isBefore(DateUtils.getLocalDateTimeOfTenant()) || dateTime.isEqual(DateUtils.getLocalDateTimeOfTenant()));
     }
 }

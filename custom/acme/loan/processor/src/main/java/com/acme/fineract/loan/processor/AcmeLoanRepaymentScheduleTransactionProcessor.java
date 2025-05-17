@@ -18,15 +18,20 @@
  */
 package com.acme.fineract.loan.processor;
 
+import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.portfolio.loanaccount.domain.transactionprocessor.impl.FineractStyleLoanRepaymentScheduleTransactionProcessor;
 import org.springframework.stereotype.Component;
 
 @Component
 public class AcmeLoanRepaymentScheduleTransactionProcessor extends FineractStyleLoanRepaymentScheduleTransactionProcessor {
 
-    private static final String STRATEGY_CODE = "acme-standard-strategy";
+    public static final String STRATEGY_CODE = "acme-standard-strategy";
 
-    private static final String STRATEGY_NAME = "ACME Corp.: standard loan transaction processing strategy";
+    public static final String STRATEGY_NAME = "ACME Corp.: standard loan transaction processing strategy";
+
+    public AcmeLoanRepaymentScheduleTransactionProcessor(ExternalIdFactory externalIdFactory) {
+        super(externalIdFactory);
+    }
 
     @Override
     public String getCode() {

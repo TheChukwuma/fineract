@@ -26,24 +26,24 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 import lombok.RequiredArgsConstructor;
 import org.apache.fineract.commands.domain.CommandWrapper;
 import org.apache.fineract.commands.service.CommandWrapperBuilder;
@@ -62,11 +62,13 @@ import org.apache.fineract.infrastructure.core.service.ExternalIdFactory;
 import org.apache.fineract.infrastructure.core.service.Page;
 import org.apache.fineract.infrastructure.core.service.SearchParameters;
 import org.apache.fineract.infrastructure.security.service.PlatformSecurityContext;
+import org.apache.fineract.infrastructure.security.service.SqlValidator;
 import org.apache.fineract.portfolio.accountdetails.data.AccountSummaryCollectionData;
 import org.apache.fineract.portfolio.accountdetails.service.AccountDetailsReadPlatformService;
 import org.apache.fineract.portfolio.client.data.ClientData;
 import org.apache.fineract.portfolio.client.exception.ClientNotFoundException;
 import org.apache.fineract.portfolio.client.service.ClientReadPlatformService;
+import org.apache.fineract.portfolio.client.service.ClientTemplateReadPlatformService;
 import org.apache.fineract.portfolio.loanaccount.guarantor.data.ObligeeData;
 import org.apache.fineract.portfolio.loanaccount.guarantor.service.GuarantorReadPlatformService;
 import org.apache.fineract.portfolio.savings.data.SavingsAccountData;
@@ -75,7 +77,7 @@ import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import org.glassfish.jersey.media.multipart.FormDataParam;
 import org.springframework.stereotype.Component;
 
-@Path("/clients")
+@Path("/v1/clients")
 @Component
 @Tag(name = "Client", description = "Clients are people and businesses that have applied (or may apply) to an MFI for loans.\n" + "\n"
         + "Clients can be created in Pending or straight into Active state.")
@@ -84,6 +86,7 @@ public class ClientsApiResource {
 
     private final PlatformSecurityContext context;
     private final ClientReadPlatformService clientReadPlatformService;
+    private final ClientTemplateReadPlatformService clientTemplateReadPlatformService;
     private final ToApiJsonSerializer<ClientData> toApiJsonSerializer;
     private final ToApiJsonSerializer<AccountSummaryCollectionData> clientAccountSummaryToApiJsonSerializer;
     private final ApiRequestParameterHelper apiRequestParameterHelper;
@@ -93,6 +96,7 @@ public class ClientsApiResource {
     private final BulkImportWorkbookService bulkImportWorkbookService;
     private final BulkImportWorkbookPopulatorService bulkImportWorkbookPopulatorService;
     private final GuarantorReadPlatformService guarantorReadPlatformService;
+    private final SqlValidator sqlValidator;
 
     @GET
     @Path("template")
@@ -120,7 +124,7 @@ public class ClientsApiResource {
         } else if (CommandParameterUtil.is(commandParam, "withdraw")) {
             clientData = clientReadPlatformService.retrieveAllNarrations(ClientApiConstants.CLIENT_WITHDRAW_REASON);
         } else {
-            clientData = clientReadPlatformService.retrieveTemplate(officeId, staffInSelectedOfficeOnly);
+            clientData = clientTemplateReadPlatformService.retrieveTemplate(officeId, staffInSelectedOfficeOnly);
         }
 
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
@@ -136,7 +140,6 @@ public class ClientsApiResource {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ClientsApiResourceSwagger.GetClientsResponse.class))) })
     public String retrieveAll(@Context final UriInfo uriInfo,
-            @QueryParam("sqlSearch") @Parameter(description = "sqlSearch") final String sqlSearch,
             @QueryParam("officeId") @Parameter(description = "officeId") final Long officeId,
             @QueryParam("externalId") @Parameter(description = "externalId") final String externalId,
             @QueryParam("displayName") @Parameter(description = "displayName") final String displayName,
@@ -148,9 +151,10 @@ public class ClientsApiResource {
             @QueryParam("limit") @Parameter(description = "limit") final Integer limit,
             @QueryParam("orderBy") @Parameter(description = "orderBy") final String orderBy,
             @QueryParam("sortOrder") @Parameter(description = "sortOrder") final String sortOrder,
-            @QueryParam("orphansOnly") @Parameter(description = "orphansOnly") final Boolean orphansOnly) {
+            @QueryParam("orphansOnly") @Parameter(description = "orphansOnly") final Boolean orphansOnly,
+            @QueryParam("legalForm") final Integer legalForm) {
 
-        return retrieveAll(uriInfo, sqlSearch, officeId, externalId, displayName, firstname, lastname, status, hierarchy, offset, limit,
+        return retrieveAll(uriInfo, officeId, externalId, displayName, firstname, lastname, status, legalForm, hierarchy, offset, limit,
                 orderBy, sortOrder, orphansOnly, false);
     }
 
@@ -212,7 +216,6 @@ public class ClientsApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     @Operation(summary = "Delete a Client", description = "If a client is in Pending state, you are allowed to Delete it. The delete is a 'hard delete' and cannot be recovered from. Once clients become active or have loans or savings associated with them, you cannot delete the client but you may Close the client if they have left the program.")
-    @RequestBody(required = true, content = @Content(schema = @Schema(implementation = ClientsApiResourceSwagger.DeleteClientsClientIdRequest.class)))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ClientsApiResourceSwagger.DeleteClientsClientIdResponse.class))) })
     public String delete(@PathParam("clientId") @Parameter(description = "clientId") final Long clientId) {
@@ -411,7 +414,6 @@ public class ClientsApiResource {
     @Consumes({ MediaType.APPLICATION_JSON })
     @Produces({ MediaType.APPLICATION_JSON })
     @Operation(summary = "Delete a Client", description = "If a client is in Pending state, you are allowed to Delete it. The delete is a 'hard delete' and cannot be recovered from. Once clients become active or have loans or savings associated with them, you cannot delete the client but you may Close the client if they have left the program.")
-    @RequestBody(required = true, content = @Content(schema = @Schema(implementation = ClientsApiResourceSwagger.DeleteClientsClientIdRequest.class)))
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ClientsApiResourceSwagger.DeleteClientsClientIdResponse.class))) })
     public String delete(@PathParam("externalId") @Parameter(description = "externalId") final String externalId) {
@@ -440,13 +442,18 @@ public class ClientsApiResource {
         return retrieveClientTransferTemplate(null, externalId);
     }
 
-    public String retrieveAll(final UriInfo uriInfo, final String sqlSearch, final Long officeId, final String externalId,
-            final String displayName, final String firstname, final String lastname, final String status, final String hierarchy,
+    public String retrieveAll(final UriInfo uriInfo, final Long officeId, final String externalId, final String displayName,
+            final String firstname, final String lastname, final String status, final Integer legalForm, final String hierarchy,
             final Integer offset, final Integer limit, final String orderBy, final String sortOrder, final Boolean orphansOnly,
             final boolean isSelfUser) {
         context.authenticatedUser().validateHasReadPermission(ClientApiConstants.CLIENT_RESOURCE_NAME);
-        final SearchParameters searchParameters = SearchParameters.forClients(sqlSearch, officeId, externalId, displayName, firstname,
-                lastname, status, hierarchy, offset, limit, orderBy, sortOrder, orphansOnly, isSelfUser);
+        sqlValidator.validate(orderBy);
+        sqlValidator.validate(sortOrder);
+        sqlValidator.validate(externalId);
+        sqlValidator.validate(hierarchy);
+        final SearchParameters searchParameters = SearchParameters.builder().limit(limit).officeId(officeId).externalId(externalId)
+                .name(displayName).hierarchy(hierarchy).firstname(firstname).lastname(lastname).status(status).orphansOnly(orphansOnly)
+                .isSelfUser(isSelfUser).offset(offset).orderBy(orderBy).sortOrder(sortOrder).legalForm(legalForm).build();
         final Page<ClientData> clientData = clientReadPlatformService.retrieveAll(searchParameters);
         final ApiRequestJsonSerializationSettings settings = apiRequestParameterHelper.process(uriInfo.getQueryParameters());
         return toApiJsonSerializer.serialize(settings, clientData, ClientApiConstants.CLIENT_RESPONSE_DATA_PARAMETERS);
@@ -455,7 +462,8 @@ public class ClientsApiResource {
     private ClientData retrieveClientData(final Long clientId, final boolean staffInSelectedOfficeOnly, final boolean isTemplate) {
         ClientData clientData = clientReadPlatformService.retrieveOne(clientId);
         if (isTemplate) {
-            final ClientData templateData = clientReadPlatformService.retrieveTemplate(clientData.getOfficeId(), staffInSelectedOfficeOnly);
+            final ClientData templateData = clientTemplateReadPlatformService.retrieveTemplate(clientData.getOfficeId(),
+                    staffInSelectedOfficeOnly);
             clientData = ClientData.templateOnTop(clientData, templateData);
             Collection<SavingsAccountData> savingAccountOptions = savingsAccountReadPlatformService.retrieveForLookup(clientId, null);
             if (savingAccountOptions != null && savingAccountOptions.size() > 0) {

@@ -27,6 +27,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +50,16 @@ public class LoanAccountLockServiceImpl implements LoanAccountLockService {
     }
 
     @Override
-    public boolean isLoanSoftLocked(Long loanId) {
-        return loanAccountLockRepository.existsByLoanIdAndLockOwner(loanId, LockOwner.LOAN_COB_PARTITIONING);
+    public boolean isLockOverrulable(Long loanId) {
+        return loanAccountLockRepository.existsByLoanIdAndLockOwnerAndErrorIsNotNull(loanId, LockOwner.LOAN_COB_CHUNK_PROCESSING) //
+                || loanAccountLockRepository.existsByLoanIdAndLockOwnerAndErrorIsNotNull(loanId, LockOwner.LOAN_INLINE_COB_PROCESSING);
     }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateCobAndRemoveLocks() {
+        loanAccountLockRepository.updateLoanFromAccountLocks();
+        loanAccountLockRepository.removeLockByOwner();
+    }
+
 }

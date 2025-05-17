@@ -18,6 +18,8 @@
  */
 package org.apache.fineract.infrastructure.campaigns.jobs.executereportmailingjobs;
 
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.Response;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -29,8 +31,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -80,7 +80,7 @@ public class ExecuteReportMailingJobsTasklet implements Tasklet {
             final LocalDateTime localDateTimeOftenant = DateUtils.getLocalDateTimeOfTenant();
             final LocalDateTime nextRunDateTime = reportMailingJob.getNextRunDateTime();
 
-            if (nextRunDateTime != null && nextRunDateTime.isBefore(localDateTimeOftenant)) {
+            if (nextRunDateTime != null && DateUtils.isBefore(nextRunDateTime, localDateTimeOftenant)) {
                 final ReportMailingJobEmailAttachmentFileFormat emailAttachmentFileFormat = ReportMailingJobEmailAttachmentFileFormat
                         .newInstance(reportMailingJob.getEmailAttachmentFileFormat());
 

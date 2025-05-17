@@ -129,13 +129,15 @@ public class ChartOfAccountsImportHandler implements ImportHandler {
         String glCode = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.GL_CODE_COL, row);
         Long tagId = null;
         CodeValueData tagIdCodeValueData = null;
-        if (ImportHandlerUtils.readAsString(ChartOfAcountsConstants.TAG_ID_COL, row) != null) {
+        if (ImportHandlerUtils.readAsString(ChartOfAcountsConstants.TAG_ID_COL, row) != null
+                && !ImportHandlerUtils.readAsString(ChartOfAcountsConstants.TAG_ID_COL, row).equals("0")) {
             tagId = Long.parseLong(Objects.requireNonNull(ImportHandlerUtils.readAsString(ChartOfAcountsConstants.TAG_ID_COL, row)));
             tagIdCodeValueData = new CodeValueData().setId(tagId);
         }
         String description = ImportHandlerUtils.readAsString(ChartOfAcountsConstants.DESCRIPTION_COL, row);
-        return GLAccountData.importInstance(accountName, parentId, glCode, manualEntriesAllowed, accountTypeEnum, usageEnum, description,
-                tagIdCodeValueData, row.getRowNum());
+        return new GLAccountData().setName(accountName).setParentId(parentId).setGlCode(glCode)
+                .setManualEntriesAllowed(manualEntriesAllowed).setType(accountTypeEnum).setUsage(usageEnum).setDescription(description)
+                .setTagId(tagIdCodeValueData).setRowIndex(row.getRowNum());
     }
 
     private Count importEntity(final Workbook workbook, final List<GLAccountData> glAccounts, final List<JournalEntryData> glTransactions,
@@ -146,7 +148,7 @@ public class ChartOfAccountsImportHandler implements ImportHandler {
         GsonBuilder gsonBuilder = GoogleGsonSerializerHelper.createGsonBuilder();
         gsonBuilder.registerTypeAdapter(EnumOptionData.class, new EnumOptionDataIdSerializer());
         gsonBuilder.registerTypeAdapter(CodeValueData.class, new CodeValueDataIdSerializer());
-        gsonBuilder.registerTypeAdapter(LocalDate.class, new DateSerializer(dateFormat));
+        gsonBuilder.registerTypeAdapter(LocalDate.class, new DateSerializer(dateFormat, locale));
         gsonBuilder.registerTypeAdapter(CurrencyData.class, new CurrencyDateCodeSerializer());
         int successCount = 0;
         int errorCount = 0;
